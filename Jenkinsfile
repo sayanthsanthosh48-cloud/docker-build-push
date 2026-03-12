@@ -1,50 +1,46 @@
 pipeline {
-    agent { label 'linux' }   // replace linux with your exact EC2 node label
+    agent any
 
     environment {
-        IMAGE_NAME = 'sayanth121/jenkins-demo:latest'
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
+        IMAGE_NAME = "sayanth121/jenkins-demo"
     }
 
     stages {
-        stage('Debug Agent') {
-            steps {
-                sh 'echo "User: $(whoami)"'
-                sh 'echo "PWD: $(pwd)"'
-                sh 'uname -a'
-                sh 'docker version'
-            }
-        }
-
-        stage('Checkout Code') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME .'
+                script {
+                    sh """
+                    docker build -t ${IMAGE_NAME}:latest .
+                    """
+                }
             }
         }
 
         stage('Login to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                script {
+                    sh """
+                    echo "${DOCKERHUB_CREDENTIALS_PSW}" | docker login -u "${DOCKERHUB_CREDENTIALS_USR}" --password-stdin
+                    """
                 }
             }
         }
 
         stage('Push Image to Docker Hub') {
             steps {
-                sh 'docker push $IMAGE_NAME'
+                script {
+                    sh """
+                    docker push ${IMAGE_NAME}:latest
+                    """
+                }
             }
         }
     }
 
     post {
         always {
-            sh 'docker logout || true'
+            sh "docker logout"
         }
     }
 }
